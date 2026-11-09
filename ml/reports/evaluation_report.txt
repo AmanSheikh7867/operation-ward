@@ -1,0 +1,34 @@
+Operation Ward Zero - Evaluation Report
+==================================================
+
+DISCLAIMER: These metrics reflect the model's ability to reproduce
+a synthetic rule-based risk score. They do NOT measure clinical
+predictive power.
+
+--- Regression Metrics ---
+  MAE:  0.041056
+  RMSE: 0.062116
+  R2:   0.962299
+
+--- Classification Metrics (Bucketed) ---
+  Thresholds: Low < 0.3, Med 0.3-0.6, High > 0.6
+
+              precision    recall  f1-score   support
+
+         Low       0.77      0.98      0.86       232
+      Medium       0.90      0.75      0.82       343
+        High       0.97      0.96      0.97       625
+
+    accuracy                           0.91      1200
+   macro avg       0.88      0.90      0.88      1200
+weighted avg       0.91      0.91      0.91      1200
+
+
+--- Confusion Matrix ---
+  Labels: [np.str_('Low'), np.str_('Medium'), np.str_('High')]
+[[228   4   0]
+ [ 68 258  17]
+ [  0  24 601]]
+
+Test samples: 1200
+Data seed: 42

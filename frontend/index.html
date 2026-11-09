@@ -1,0 +1,1144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WARD ZERO // Hospital ICU Clinical Telemetry Command Center</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#020509;--c:#00f3ff;--p:#a855f7;--r:#ff004c;--g:#10b981;--w:#f59e0b;--a:var(--c);
+  --card-bg:rgba(6,14,24,0.85);--card-border:rgba(0,243,255,0.22);
+}
+body.danger{--a:var(--r)}
+html,body{height:100%;margin:0;overflow-x:hidden;background:var(--bg);color:#d1f4ff;font-family:'Rajdhani',system-ui,sans-serif;font-size:15px}
+.orb{font-family:'Orbitron',sans-serif}.mono{font-family:'Share Tech Mono',monospace}
+
+/* Cyber-Medical Grid Background */
+body::before{
+  content:"";position:fixed;inset:0;z-index:0;
+  background:radial-gradient(ellipse at 50% 0%,rgba(168,85,247,0.14),transparent 60%),
+             radial-gradient(ellipse at 50% 100%,rgba(0,243,255,0.12),transparent 60%),
+             linear-gradient(rgba(0,243,255,0.05) 1px,transparent 1px),
+             linear-gradient(90deg,rgba(0,243,255,0.05) 1px,transparent 1px);
+  background-size:100% 100%,100% 100%,40px 40px,40px 40px;
+  animation:grid 12s linear infinite;pointer-events:none;
+}
+@keyframes grid{to{background-position:0 0,0 0,0 40px,40px 0}}
+body::after{content:"";position:fixed;inset:0;z-index:50;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(0,0,0,0.12) 0 1px,transparent 1px 3px);opacity:0.4}
+
+/* High-Tech Card Styles */
+.card-icu{
+  position:relative;background:var(--card-bg);backdrop-filter:blur(14px) saturate(160%);-webkit-backdrop-filter:blur(14px) saturate(160%);
+  border:1px solid var(--card-border);border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.5),inset 0 0 24px rgba(0,243,255,0.03);
+  transition:border-color .3s,box-shadow .3s,transform .2s;
+}
+.card-icu:hover{border-color:rgba(0,243,255,0.45);box-shadow:0 6px 26px rgba(0,243,255,0.15)}
+
+/* Telemetry Parameter Tiles */
+.v-tile{padding:10px 12px;display:flex;flex-direction:column;justify-content:space-between;border-radius:8px;background:rgba(4,10,18,0.7);border:1px solid rgba(0,243,255,0.14)}
+.v-tile .val{font:900 clamp(24px,2.2vw,34px) 'Orbitron',sans-serif;color:var(--c);line-height:1;text-shadow:0 0 14px var(--c)}
+.v-tile.crit{border-color:var(--r);background:rgba(255,0,76,0.08);animation:crit-pulse 1s infinite}
+.v-tile.crit .val{color:#ff5277;text-shadow:0 0 18px var(--r)}
+.v-tile.crit .status-tag{color:var(--r)}
+.v-tile.warn{border-color:var(--w);background:rgba(245,158,11,0.08)}
+.v-tile.warn .val{color:#fbbf24;text-shadow:0 0 14px var(--w)}
+.v-tile.warn .status-tag{color:var(--w)}
+@keyframes crit-pulse{50%{box-shadow:0 0 24px rgba(255,0,76,0.35),inset 0 0 16px rgba(255,0,76,0.2)}}
+.status-tag{font:700 10px 'Orbitron',sans-serif;letter-spacing:0.12em;color:var(--g)}
+
+/* LED Indicators */
+.led{width:8px;height:8px;border-radius:50%;background:var(--r);box-shadow:0 0 8px var(--r);display:inline-block}
+.led.ok{background:var(--g);box-shadow:0 0 8px var(--g);animation:blink 2s infinite}
+@keyframes blink{50%{opacity:.3}}
+
+/* Scenario Selector Button */
+.btn-scen{border:1px solid rgba(0,243,255,0.35);background:rgba(0,243,255,0.08);color:var(--c);padding:5px 12px;border-radius:6px;font:700 11px 'Orbitron',sans-serif;letter-spacing:.08em;cursor:pointer;transition:.2s;display:inline-flex;align-items:center;gap:6px}
+.btn-scen:hover{background:rgba(0,243,255,0.22);box-shadow:0 0 14px var(--c);transform:translateY(-1px)}
+.btn-scen.active{background:var(--c);color:#000;box-shadow:0 0 18px var(--c)}
+.btn-scen.danger{border-color:rgba(255,0,76,0.5);background:rgba(255,0,76,0.1);color:#ff5277}
+.btn-scen.danger:hover{background:rgba(255,0,76,0.25);box-shadow:0 0 16px var(--r)}
+.btn-scen.danger.active{background:var(--r);color:#fff;box-shadow:0 0 20px var(--r)}
+
+/* Bed Tabs */
+.bed-tab{border:1px solid rgba(0,243,255,0.25);background:rgba(6,14,24,0.9);padding:6px 14px;border-radius:8px;font:700 12px 'Orbitron',sans-serif;cursor:pointer;transition:.2s;display:inline-flex;align-items:center;gap:8px}
+.bed-tab.active{border-color:var(--c);background:rgba(0,243,255,0.18);box-shadow:0 0 16px rgba(0,243,255,0.35)}
+.bed-tab.crit{border-color:var(--r);color:#ff5277;animation:pulse 1.5s infinite}
+
+/* Waveform Canvases */
+.wavebox{background-image:linear-gradient(rgba(0,243,255,0.08) 1px,transparent 1px),linear-gradient(90deg,rgba(0,243,255,0.08) 1px,transparent 1px),linear-gradient(rgba(0,243,255,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,243,255,0.03) 1px,transparent 1px);background-size:60px 60px,60px 60px,12px 12px,12px 12px;border-radius:6px;background-color:#02070e}
+
+/* Navigation & Sub-Tabs */
+.tab-link{padding:6px 14px;font:700 11px 'Orbitron',sans-serif;letter-spacing:0.1em;border-bottom:2px solid transparent;color:#7aa9b3;cursor:pointer;transition:.2s}
+.tab-link.active{color:var(--c);border-color:var(--c);text-shadow:0 0 8px var(--c)}
+
+/* Chat bubbles */
+.msg{padding:8px 12px;border-radius:8px;line-height:1.4;font-size:13px;max-width:85%}
+.msg.ai{align-self:flex-start;background:rgba(0,243,255,0.1);border-left:3px solid var(--c);color:#e0f9ff}
+.msg.me{align-self:flex-end;background:rgba(168,85,247,0.15);border-right:3px solid var(--p);color:#f3e8ff}
+
+/* Three.js canvas */
+#bg{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;opacity:0.35}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:rgba(2,5,9,0.8)}
+::-webkit-scrollbar-thumb{background:rgba(0,243,255,0.25);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:rgba(0,243,255,0.5)}
+</style>
+</head>
+<body class="relative min-h-screen flex flex-col justify-between">
+<canvas id="bg"></canvas>
+
+<!-- ========================================== -->
+<!-- 1. TOP EXECUTIVE TELEMETRY COMMAND BAR    -->
+<!-- ========================================== -->
+<header class="relative z-30 px-4 py-2 border-b border-cyan-500/25 bg-slate-950/90 backdrop-blur-md flex flex-wrap items-center justify-between gap-3">
+  <!-- Brand & Subsystem -->
+  <div class="flex items-center gap-3">
+    <div class="w-8 h-8 rounded border border-cyan-400 bg-cyan-950/60 flex items-center justify-center shadow-[0_0_12px_rgba(0,243,255,0.4)]">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00f3ff" stroke-width="2"><path d="M12 2l9 5v10l-9 5-9-5V7z"/><path d="M12 8v8M8 12h8" stroke="#a855f7"/></svg>
+    </div>
+    <div>
+      <div class="orb font-black text-base md:text-lg tracking-wider text-cyan-300 drop-shadow-[0_0_8px_rgba(0,243,255,0.6)]">OPERATION WARD ZERO</div>
+      <div class="mono text-[10px] text-cyan-400/80 tracking-widest">HOSPITAL ICU TELEMETRY & CLINICAL DECISION CENTER</div>
+    </div>
+  </div>
+
+  <!-- Bed Quick Selector Tabs -->
+  <div class="flex items-center gap-2" id="bedTabContainer">
+    <button class="bed-tab active" data-bed="bed01" id="tabBed01">
+      <span class="led ok" id="ledBed01"></span>
+      <span>BED 01 <small class="text-cyan-400/70 font-normal hidden sm:inline">(Post-Op)</small></span>
+    </button>
+    <button class="bed-tab" data-bed="bed02" id="tabBed02">
+      <span class="led" id="ledBed02"></span>
+      <span>BED 02 <small class="text-red-400/80 font-normal hidden sm:inline">(Sepsis Alert)</small></span>
+    </button>
+    <button class="bed-tab" data-bed="bed03" id="tabBed03">
+      <span class="led ok" id="ledBed03"></span>
+      <span>BED 03 <small class="text-amber-400/80 font-normal hidden sm:inline">(Cardiology)</small></span>
+    </button>
+  </div>
+
+  <!-- Telemetry Controls & Language -->
+  <div class="flex items-center gap-2 md:gap-3 text-xs mono">
+    <button id="btnAudio" class="border border-cyan-400/40 rounded px-2.5 py-1 text-cyan-300 hover:border-cyan-300 transition flex items-center gap-1.5" title="Toggle Bedside Alarm Audio">
+      <span id="audioIcon">🔇</span> <span id="audioLabel">MUTE</span>
+    </button>
+    <div class="hidden lg:flex items-center gap-2 px-2 py-1 rounded bg-black/40 border border-cyan-500/20 text-cyan-200">
+      <span title="WebSocket Biometric Stream"><i class="led ok" id="ledWs"></i> LINK</span>
+      <span title="MQTT Sensor Broker"><i class="led ok" id="ledMqtt"></i> MQTT</span>
+      <span title="Supabase Cloud DB"><i class="led ok" id="ledDb"></i> DB</span>
+    </div>
+    <select id="langSelect" class="bg-black/60 border border-cyan-400/40 rounded px-2 py-1 text-cyan-300 font-semibold text-xs outline-none">
+      <option value="en">EN</option>
+      <option value="hi">हिन्दी</option>
+      <option value="hinglish">Hinglish</option>
+    </select>
+  </div>
+</header>
+
+<!-- ========================================== -->
+<!-- 2. CLINICAL SCENARIO CONTROLLER (DEMO BAR) -->
+<!-- ========================================== -->
+<div class="relative z-20 px-4 py-2 bg-cyan-950/30 border-b border-cyan-500/20 flex flex-wrap items-center justify-between gap-2">
+  <div class="flex items-center gap-2 text-xs mono text-cyan-300">
+    <span class="text-amber-400 font-bold">⚡ CLINICAL SCENARIO SIMULATOR:</span>
+    <span class="text-cyan-400/70 hidden sm:inline">Click to inject real-world hospital crises into active telemetry:</span>
+  </div>
+  <div class="flex flex-wrap items-center gap-1.5">
+    <button class="btn-scen active" id="scenNorm"><span>🟢 Normal Resting</span></button>
+    <button class="btn-scen danger" id="scenSepsis"><span>🔴 Sepsis (qSOFA)</span></button>
+    <button class="btn-scen danger" id="scenHypo"><span>⚠️ Hypoglycemia</span></button>
+    <button class="btn-scen danger" id="scenResp"><span>🔵 Respiratory Distress</span></button>
+    <button class="btn-scen danger" id="scenHyper"><span>🟣 Hypertensive Emergency</span></button>
+    <button class="btn-scen" id="scenDecline"><span>⚡ Dynamic Deterioration</span></button>
+  </div>
+</div>
+
+<!-- ========================================== -->
+<!-- 3. MAIN UNIFIED ICU TELEMETRY DASHBOARD    -->
+<!-- ========================================== -->
+<main class="relative z-10 flex-1 p-3 md:p-4 grid grid-cols-1 lg:grid-cols-12 gap-3 max-w-[1720px] mx-auto w-full">
+
+  <!-- ========================================== -->
+  <!-- COLUMN 1: PATIENT PROFILE & HOLOGRAM (3 cols) -->
+  <!-- ========================================== -->
+  <section class="lg:col-span-3 flex flex-col gap-3">
+    <!-- Active Clinical Syndrome Alert Banner -->
+    <div id="syndromeCard" class="card-icu p-3 border-l-4 border-l-emerald-400 bg-emerald-950/20">
+      <div class="flex justify-between items-center mb-1">
+        <span class="orb text-[11px] font-bold text-emerald-300" id="synStatus">PHYSIOLOGICAL HOMEOSTASIS</span>
+        <span class="mono text-[10px] text-emerald-400" id="synTime">NORMAL</span>
+      </div>
+      <div class="text-xs text-white/90 font-medium" id="synDesc">All vital signs within target safe parameters.</div>
+      <div class="mt-2 pt-2 border-t border-cyan-500/15 text-[11px] text-cyan-300/80 mono" id="synAction">
+        Protocol: Routine vital sign observation.
+      </div>
+    </div>
+
+    <!-- Patient Details Card -->
+    <div class="card-icu p-3 flex flex-col gap-2">
+      <div class="flex justify-between items-center border-b border-cyan-500/20 pb-1.5">
+        <span class="orb text-xs font-bold text-cyan-300">PATIENT PROFILE</span>
+        <span class="mono text-[10px] text-cyan-400/70" id="badgeBedId">BED 01</span>
+      </div>
+      <div class="grid grid-cols-2 gap-2 text-xs">
+        <div><span class="text-cyan-400/60 block mono text-[10px]">NAME</span><b class="orb text-white text-sm" id="pName">John Doe</b></div>
+        <div><span class="text-cyan-400/60 block mono text-[10px]">AGE / BLOOD</span><b class="orb text-white text-sm"><span id="pAge">58</span> yrs · <span id="pBlood">O+</span></b></div>
+        <div><span class="text-cyan-400/60 block mono text-[10px]">DIAGNOSIS</span><b class="text-cyan-200" id="pDiag">Post-Op Telemetry</b></div>
+        <div><span class="text-cyan-400/60 block mono text-[10px]">CAREGIVER</span><b class="text-cyan-200" id="pCare">Nurse Sarah</b></div>
+      </div>
+      <div class="text-[11px] mono text-cyan-400/70 pt-1 border-t border-cyan-500/15 flex justify-between">
+        <span>LOCATION: <b class="text-white" id="pRoom">Room 204</b></span>
+        <span id="streamLatency">LATENCY: 18ms</span>
+      </div>
+    </div>
+
+    <!-- 3D Hologram Stage with Organ Highlights -->
+    <div class="card-icu p-3 flex-1 min-h-[220px] flex flex-col items-center justify-center relative overflow-hidden">
+      <svg viewBox="0 0 200 380" class="w-full h-full max-h-[240px]" fill="none" stroke-linejoin="round">
+        <defs>
+          <linearGradient id="bodyG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#00f3ff" stop-opacity=".25"/><stop offset="1" stop-color="#a855f7" stop-opacity=".1"/></linearGradient>
+          <clipPath id="bodyClip"><path d="M90 74 C70 78 52 84 46 100 L34 170 L28 232 L38 236 L50 180 L58 140 L60 214 L64 292 L68 360 L92 360 L96 296 L100 250 L104 296 L108 360 L132 360 L136 292 L140 214 L142 140 L150 180 L162 236 L172 232 L166 170 L154 100 C148 84 130 78 110 74 Z"/><circle cx="100" cy="38" r="22"/></clipPath>
+          <pattern id="wire" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M10 0H0V10" stroke="#00f3ff" stroke-opacity=".25" stroke-width=".5"/></pattern>
+        </defs>
+        <!-- Body Contour -->
+        <g><circle cx="100" cy="38" r="22" fill="url(#bodyG)" stroke="#00f3ff" stroke-width="1.6"/><path d="M90 74 C70 78 52 84 46 100 L34 170 L28 232 L38 236 L50 180 L58 140 L60 214 L64 292 L68 360 L92 360 L96 296 L100 250 L104 296 L108 360 L132 360 L136 292 L140 214 L142 140 L150 180 L162 236 L172 232 L166 170 L154 100 C148 84 130 78 110 74 Z" fill="url(#bodyG)" stroke="#00f3ff" stroke-width="1.6"/></g>
+        <g clip-path="url(#bodyClip)"><rect width="200" height="380" fill="url(#wire)"/></g>
+        <!-- Heart Pulse Indicator -->
+        <circle id="pulseHeart" cx="112" cy="116" r="10" stroke="#00f3ff" stroke-width="1.5" class="animate-ping" opacity=".7"/>
+        <g transform="translate(112 116)"><path d="M0 8C-14-2-10-14 0-6C10-14 14-2 0 8Z" fill="#ff004c"/></g>
+        <text id="holoHrTxt" x="126" y="118" font-size="9" fill="#00f3ff" font-family="Share Tech Mono">♥ 74 bpm</text>
+        <!-- Lungs Respiration Indicator -->
+        <ellipse cx="88" cy="126" rx="10" ry="16" stroke="#10b981" stroke-dasharray="2 2" fill="none" opacity=".8"/>
+        <ellipse cx="114" cy="126" rx="10" ry="16" stroke="#10b981" stroke-dasharray="2 2" fill="none" opacity=".8"/>
+        <text id="holoRrTxt" x="126" y="132" font-size="9" fill="#10b981" font-family="Share Tech Mono">Resp: 16 bpm</text>
+        <!-- Brain Autonomic Reserve -->
+        <circle cx="100" cy="38" r="12" stroke="#a855f7" stroke-dasharray="2 3" fill="none" opacity=".8"/>
+        <text x="124" y="42" font-size="9" fill="#a855f7" font-family="Share Tech Mono">HRV: 48ms</text>
+      </svg>
+    </div>
+
+    <!-- Caregiver Protocol Action Checklist -->
+    <div class="card-icu p-3">
+      <div class="flex justify-between items-center mb-2">
+        <span class="orb text-xs font-bold text-amber-300">CLINICAL ACTION CHECKLIST</span>
+        <span class="mono text-[10px] text-cyan-400" id="checklistProgress">0/4 DONE</span>
+      </div>
+      <div class="flex flex-col gap-1.5 text-xs text-cyan-100/90" id="protocolChecklist">
+        <label class="flex items-start gap-2 cursor-pointer hover:text-white"><input type="checkbox" class="mt-0.5 accent-cyan-400"><span>Verify pulse oximeter probe placement</span></label>
+        <label class="flex items-start gap-2 cursor-pointer hover:text-white"><input type="checkbox" class="mt-0.5 accent-cyan-400"><span>Ensure patient head elevated to 45°</span></label>
+        <label class="flex items-start gap-2 cursor-pointer hover:text-white"><input type="checkbox" class="mt-0.5 accent-cyan-400"><span>Check MAP target perfusion (≥ 65 mmHg)</span></label>
+        <label class="flex items-start gap-2 cursor-pointer hover:text-white"><input type="checkbox" class="mt-0.5 accent-cyan-400"><span>Notify physician if NEWS2 score ≥ 5</span></label>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================================== -->
+  <!-- COLUMN 2: 10-PARAM TELEMETRY MATRIX (6 cols)-->
+  <!-- ========================================== -->
+  <section class="lg:col-span-6 flex flex-col gap-3">
+    <!-- Row 1: Primary Hemodynamics (HR, SpO2, NIBP+MAP, RR) -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+      <!-- 1. Heart Rate -->
+      <div class="card-icu v-tile" id="tileHr">
+        <div class="flex justify-between items-center"><span class="text-xs text-cyan-300 font-semibold uppercase">Heart Rate</span><span class="mono text-[10px] text-cyan-400/60">ECG II</span></div>
+        <div class="my-1"><span class="val" id="vHr">74</span><span class="mono text-xs text-cyan-300/70 ml-1">bpm</span></div>
+        <div class="flex justify-between items-center"><span class="mono text-[10px] text-cyan-400/50">Norm: 60-100</span><span class="status-tag" id="sHr">NORMAL</span></div>
+      </div>
+
+      <!-- 2. Blood Oxygen -->
+      <div class="card-icu v-tile" id="tileSpo2">
+        <div class="flex justify-between items-center"><span class="text-xs text-cyan-300 font-semibold uppercase">Oxygen (SpO₂)</span><span class="mono text-[10px] text-cyan-400/60">Pleth</span></div>
+        <div class="my-1"><span class="val" id="vSpo2">98.2</span><span class="mono text-xs text-cyan-300/70 ml-1">%</span></div>
+        <div class="flex justify-between items-center"><span class="mono text-[10px] text-cyan-400/50">Target: ≥ 95%</span><span class="status-tag" id="sSpo2">OPTIMAL</span></div>
+      </div>
+
+      <!-- 3. Blood Pressure + MAP -->
+      <div class="card-icu v-tile" id="tileBp">
+        <div class="flex justify-between items-center"><span class="text-xs text-cyan-300 font-semibold uppercase">Blood Pressure</span><span class="mono text-[10px] text-cyan-400/60">NIBP</span></div>
+        <div class="my-1"><span class="val"><span id="vSys">120</span><span class="opacity-40">/</span><span id="vDia">78</span></span></div>
+        <div class="flex justify-between items-center"><span class="mono text-[10px] text-cyan-400/60">MAP: <b id="vMap" class="text-cyan-200">92</b> mmHg</span><span class="status-tag" id="sBp">NORMAL</span></div>
+      </div>
+
+      <!-- 4. Respiratory Rate -->
+      <div class="card-icu v-tile" id="tileRr">
+        <div class="flex justify-between items-center"><span class="text-xs text-cyan-300 font-semibold uppercase">Respiration (RR)</span><span class="mono text-[10px] text-cyan-400/60">Capno</span></div>
+        <div class="my-1"><span class="val" id="vRr">16</span><span class="mono text-xs text-cyan-300/70 ml-1">bpm</span></div>
+        <div class="flex justify-between items-center"><span class="mono text-[10px] text-cyan-400/50">Norm: 12-20</span><span class="status-tag" id="sRr">NORMAL</span></div>
+      </div>
+    </div>
+
+    <!-- Row 2: Advanced ICU Hemodynamic & Metabolic Parameters (Glucose, Temp, Shock Index, HRV) -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+      <!-- 5. Blood Glucose -->
+      <div class="card-icu v-tile" id="tileGlu">
+        <div class="flex justify-between items-center"><span class="text-xs text-cyan-300 font-semibold uppercase">Blood Glucose</span><span class="mono text-[10px] text-cyan-400/60">POC</span></div>
+        <div class="my-1"><span class="val" id="vGlu">96</span><span class="mono text-xs text-cyan-300/70 ml-1">mg/dL</span></div>
+        <div class="flex justify-between items-center"><span class="mono text-[10px] text-cyan-400/50">Norm: 70-140</span><span class="status-tag" id="sGlu">EUGLYCEMIC</span></div>
+      </div>
+
+      <!-- 6. Temperature -->
+      <div class="card-icu v-tile" id="tileTemp">
+        <div class="flex justify-between items-center"><span class="text-xs text-cyan-300 font-semibold uppercase">Temperature</span><span class="mono text-[10px] text-cyan-400/60">Core</span></div>
+        <div class="my-1"><span class="val" id="vTemp">36.8</span><span class="mono text-xs text-cyan-300/70 ml-1">°C</span></div>
+        <div class="flex justify-between items-center"><span class="mono text-[10px] text-cyan-400/50">Norm: 36.1-37.8</span><span class="status-tag" id="sTemp">NORMAL</span></div>
+      </div>
+
+      <!-- 7. Shock Index -->
+      <div class="card-icu v-tile" id="tileShock">
+        <div class="flex justify-between items-center"><span class="text-xs text-cyan-300 font-semibold uppercase">Shock Index</span><span class="mono text-[10px] text-cyan-400/60">HR/SYS</span></div>
+        <div class="my-1"><span class="val" id="vShock">0.62</span></div>
+        <div class="flex justify-between items-center"><span class="mono text-[10px] text-cyan-400/50">&lt; 0.70 Safe</span><span class="status-tag" id="sShock">SAFE</span></div>
+      </div>
+
+      <!-- 8. Heart Rate Variability (HRV) -->
+      <div class="card-icu v-tile" id="tileHrv">
+        <div class="flex justify-between items-center"><span class="text-xs text-cyan-300 font-semibold uppercase">HRV (RMSSD)</span><span class="mono text-[10px] text-cyan-400/60">Autonomic</span></div>
+        <div class="my-1"><span class="val" id="vHrv">48</span><span class="mono text-xs text-cyan-300/70 ml-1">ms</span></div>
+        <div class="flex justify-between items-center"><span class="mono text-[10px] text-cyan-400/50">Norm: &gt; 25 ms</span><span class="status-tag" id="sHrv">NORMAL</span></div>
+      </div>
+    </div>
+
+    <!-- Dual Live Waveform Monitors: Lead II ECG & Capnography Trace -->
+    <div class="card-icu p-3 flex flex-col gap-2 flex-1 min-h-[220px]">
+      <div class="flex justify-between items-center border-b border-cyan-500/20 pb-1.5">
+        <div class="flex items-center gap-2">
+          <span class="orb text-xs font-bold text-cyan-300">REAL-TIME BIOMETRIC TELEMETRY WAVEFORMS</span>
+          <span class="mono text-[10px] text-emerald-400 bg-emerald-950/40 border border-emerald-500/30 px-1.5 rounded">60 FPS SYNC</span>
+        </div>
+        <div class="mono text-[11px] text-cyan-400/70 flex gap-3">
+          <span class="text-cyan-400">■ Lead II ECG</span>
+          <span class="text-emerald-400">■ Capnography Respiration</span>
+        </div>
+      </div>
+
+      <!-- ECG Canvas -->
+      <div class="h-28 wavebox relative"><canvas id="ecgCanvas" class="w-full h-full"></canvas></div>
+
+      <!-- Capnography Canvas -->
+      <div class="h-20 wavebox relative"><canvas id="capnoCanvas" class="w-full h-full"></canvas></div>
+    </div>
+  </section>
+
+  <!-- ========================================== -->
+  <!-- COLUMN 3: AI RISK & EXPLAINABILITY (3 cols) -->
+  <!-- ========================================== -->
+  <section class="lg:col-span-3 flex flex-col gap-3">
+    <!-- Dual-Tier Clinical Risk Cockpit -->
+    <div class="card-icu p-3 flex flex-col items-center">
+      <div class="orb text-xs font-bold text-cyan-300 tracking-wider mb-2">DUAL-TIER RISK COCKPIT</div>
+      <div class="flex items-center justify-around w-full">
+        <!-- AI Random Forest Gauge -->
+        <div class="flex flex-col items-center">
+          <div class="relative w-24 h-24 flex items-center justify-center">
+            <svg viewBox="0 0 100 100" class="w-full h-full transform -rotate-90">
+              <circle cx="50" cy="50" r="40" stroke="rgba(0,243,255,0.15)" stroke-width="8" fill="none"/>
+              <circle id="gArcAi" cx="50" cy="50" r="40" stroke="var(--c)" stroke-width="8" stroke-dasharray="251.2" stroke-dashoffset="200" fill="none" stroke-linecap="round"/>
+            </svg>
+            <div class="absolute inset-0 flex flex-col items-center justify-center">
+              <span id="valAiRisk" class="orb font-bold text-2xl text-cyan-300">0.18</span>
+              <span class="mono text-[8px] text-cyan-400/60">AI RISK</span>
+            </div>
+          </div>
+          <span id="badgeAiRisk" class="orb text-xs mt-1 font-bold text-cyan-300">STABLE</span>
+        </div>
+
+        <!-- NHS NEWS2 Score Gauge -->
+        <div class="flex flex-col items-center">
+          <div class="relative w-24 h-24 flex items-center justify-center">
+            <svg viewBox="0 0 100 100" class="w-full h-full transform -rotate-90">
+              <circle cx="50" cy="50" r="40" stroke="rgba(168,85,247,0.15)" stroke-width="8" fill="none"/>
+              <circle id="gArcNews" cx="50" cy="50" r="40" stroke="var(--p)" stroke-width="8" stroke-dasharray="251.2" stroke-dashoffset="251.2" fill="none" stroke-linecap="round"/>
+            </svg>
+            <div class="absolute inset-0 flex flex-col items-center justify-center">
+              <span id="valNews2" class="orb font-bold text-2xl text-purple-300">0</span>
+              <span class="mono text-[8px] text-purple-400/60">NEWS2</span>
+            </div>
+          </div>
+          <span id="badgeNews2" class="orb text-xs mt-1 font-bold text-purple-300">LOW</span>
+        </div>
+      </div>
+      <div class="mono text-[10px] text-cyan-400/60 mt-2 text-center">
+        Random Forest 10-Param Regressor + NHS NEWS2 Standard
+      </div>
+    </div>
+
+    <!-- Explainable AI (SHAP Waterfall Attribution) -->
+    <div class="card-icu p-3 flex flex-col flex-1 min-h-[220px]">
+      <div class="flex justify-between items-center border-b border-cyan-500/20 pb-1.5 mb-2">
+        <span class="orb text-xs font-bold text-cyan-300">SHAP FEATURE ATTRIBUTION</span>
+        <span class="mono text-[10px] text-cyan-400/70">10-VITAL XAI</span>
+      </div>
+      <div id="shapList" class="flex flex-col gap-1.5 flex-1 justify-center overflow-y-auto">
+        <!-- Rendered dynamically -->
+      </div>
+      <div class="mono text-[10px] text-cyan-400/60 border-t border-cyan-500/15 pt-1.5 mt-2 flex justify-between">
+        <span class="text-orange-400 font-bold">■ Orange: Elevates Risk</span>
+        <span class="text-cyan-400 font-bold">■ Cyan: Normalizing</span>
+      </div>
+    </div>
+
+    <!-- Diagnostic Rule Reasoning Console -->
+    <div class="card-icu p-3 flex flex-col min-h-[140px] font-mono text-xs">
+      <div class="flex items-center gap-2 border-b border-cyan-500/20 pb-1 mb-1.5 text-cyan-400">
+        <span class="led ok"></span>
+        <span class="orb text-[10px] font-bold">PHYSIOLOGICAL ANOMALY DETECTIONS</span>
+      </div>
+      <div id="ruleConsole" class="flex-1 overflow-y-auto text-cyan-200/90 leading-relaxed text-[11px]">
+        <div class="text-emerald-400/90 font-mono">[NORMAL] All 10 monitored parameters within clinical homeostasis.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================================== -->
+  <!-- 4. BOTTOM WORKSPACE TABS (Full Width)      -->
+  <!-- ========================================== -->
+  <section class="lg:col-span-12 card-icu p-3 flex flex-col gap-3 min-h-[260px]">
+    <!-- Tab Controls -->
+    <div class="flex flex-wrap items-center justify-between border-b border-cyan-500/20 pb-1">
+      <div class="flex items-center gap-1" id="workspaceTabs">
+        <button class="tab-link active" data-tab="tabTrend">60-SECOND TREND GRAPHS</button>
+        <button class="tab-link" data-tab="tabWard">ALL BEDS OVERVIEW</button>
+        <button class="tab-link" data-tab="tabHistory">TELEMETRY LOG TABLE</button>
+        <button class="tab-link" data-tab="tabAiChat">AI CAREGIVER TRIAGE ASSISTANT</button>
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="btnExportCsv" class="mono text-[11px] border border-cyan-400/40 rounded px-2.5 py-0.5 text-cyan-300 hover:border-cyan-300 transition">EXPORT TELEMETRY CSV</button>
+      </div>
+    </div>
+
+    <!-- Workspace Tab Content Panels -->
+    <div class="flex-1 relative min-h-[180px]">
+      <!-- Tab 1: Real-time Multi-Trace Trend Canvas -->
+      <div id="panelTrend" class="absolute inset-0 flex flex-col">
+        <div class="flex justify-between items-center mb-1 text-xs mono text-cyan-400/80">
+          <span>REAL-TIME MULTI-PARAM TRAJECTORY (LAST 40 OBSERVATIONS)</span>
+          <div class="flex gap-4">
+            <span style="color:#00f3ff">■ HR</span>
+            <span style="color:#10b981">■ SpO₂</span>
+            <span style="color:#f59e0b">■ MAP</span>
+            <span style="color:#ff004c">■ AI Risk %</span>
+          </div>
+        </div>
+        <div class="flex-1 relative wavebox"><canvas id="trendChartCanvas" class="w-full h-full"></canvas></div>
+      </div>
+
+      <!-- Tab 2: All Beds Overview Grid -->
+      <div id="panelWard" class="absolute inset-0 hidden grid grid-cols-1 md:grid-cols-3 gap-3 overflow-y-auto">
+        <!-- Bed 01 Card -->
+        <div class="p-3 rounded border border-cyan-500/30 bg-black/40 flex flex-col justify-between">
+          <div class="flex justify-between items-center">
+            <span class="orb font-bold text-cyan-300">BED 01 · John Doe</span>
+            <span class="mono text-xs text-emerald-400 font-bold">STABLE (NEWS2: 0)</span>
+          </div>
+          <div class="grid grid-cols-4 gap-1 text-xs my-2 text-cyan-200 mono">
+            <div>HR: <b class="text-white" id="wHr1">74</b></div>
+            <div>SpO₂: <b class="text-white" id="wSpo1">98%</b></div>
+            <div>BP: <b class="text-white" id="wBp1">120/78</b></div>
+            <div>RR: <b class="text-white" id="wRr1">16</b></div>
+          </div>
+          <button class="w-full py-1 text-xs orb border border-cyan-400/40 rounded text-cyan-300 hover:bg-cyan-500/20" onclick="setBed('bed01')">SWITCH TO BED 01</button>
+        </div>
+
+        <!-- Bed 02 Card -->
+        <div class="p-3 rounded border border-red-500/40 bg-red-950/20 flex flex-col justify-between">
+          <div class="flex justify-between items-center">
+            <span class="orb font-bold text-red-300">BED 02 · Maria Garcia</span>
+            <span class="mono text-xs text-red-400 font-bold">CRITICAL (NEWS2: 8)</span>
+          </div>
+          <div class="grid grid-cols-4 gap-1 text-xs my-2 text-red-200 mono">
+            <div>HR: <b class="text-white" id="wHr2">122</b></div>
+            <div>SpO₂: <b class="text-white" id="wSpo2">92%</b></div>
+            <div>BP: <b class="text-white" id="wBp2">88/54</b></div>
+            <div>RR: <b class="text-white" id="wRr2">26</b></div>
+          </div>
+          <button class="w-full py-1 text-xs orb border border-red-400/40 rounded text-red-300 hover:bg-red-500/20" onclick="setBed('bed02')">SWITCH TO BED 02</button>
+        </div>
+
+        <!-- Bed 03 Card -->
+        <div class="p-3 rounded border border-amber-500/30 bg-amber-950/20 flex flex-col justify-between">
+          <div class="flex justify-between items-center">
+            <span class="orb font-bold text-amber-300">BED 03 · Rajesh Patel</span>
+            <span class="mono text-xs text-amber-400 font-bold">WARNING (NEWS2: 4)</span>
+          </div>
+          <div class="grid grid-cols-4 gap-1 text-xs my-2 text-amber-200 mono">
+            <div>HR: <b class="text-white" id="wHr3">84</b></div>
+            <div>SpO₂: <b class="text-white" id="wSpo3">96%</b></div>
+            <div>BP: <b class="text-white" id="wBp3">136/84</b></div>
+            <div>RR: <b class="text-white" id="wRr3">18</b></div>
+          </div>
+          <button class="w-full py-1 text-xs orb border border-amber-400/40 rounded text-amber-300 hover:bg-amber-500/20" onclick="setBed('bed03')">SWITCH TO BED 03</button>
+        </div>
+      </div>
+
+      <!-- Tab 3: Telemetry History Table -->
+      <div id="panelHistory" class="absolute inset-0 hidden overflow-y-auto">
+        <table class="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr class="bg-cyan-950/50 text-cyan-300 font-mono text-[10px] sticky top-0">
+              <th class="p-1.5 border-b border-cyan-500/20">TIME (UTC)</th>
+              <th class="p-1.5 border-b border-cyan-500/20">BED</th>
+              <th class="p-1.5 border-b border-cyan-500/20">HR</th>
+              <th class="p-1.5 border-b border-cyan-500/20">SpO₂</th>
+              <th class="p-1.5 border-b border-cyan-500/20">BP</th>
+              <th class="p-1.5 border-b border-cyan-500/20">MAP</th>
+              <th class="p-1.5 border-b border-cyan-500/20">RR</th>
+              <th class="p-1.5 border-b border-cyan-500/20">GLU</th>
+              <th class="p-1.5 border-b border-cyan-500/20">SI</th>
+              <th class="p-1.5 border-b border-cyan-500/20">NEWS2</th>
+              <th class="p-1.5 border-b border-cyan-500/20">AI RISK</th>
+            </tr>
+          </thead>
+          <tbody id="historyTbody" class="mono text-cyan-200/90 divide-y divide-cyan-500/10">
+            <!-- Dynamically populated -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Tab 4: AI Caregiver Triage Assistant (Groq LLM) -->
+      <div id="panelAiChat" class="absolute inset-0 hidden flex flex-col justify-between">
+        <div id="chatMessages" class="flex-1 overflow-y-auto flex flex-col gap-2 p-2"></div>
+        <div class="pt-2 border-t border-cyan-500/20 flex flex-col gap-2">
+          <div class="flex flex-wrap gap-1.5">
+            <button class="text-xs px-2 py-0.5 rounded-full border border-purple-400/40 text-purple-300 hover:bg-purple-900/40 chip-q" data-q="What is the current patient clinical stability?">Clinical Status</button>
+            <button class="text-xs px-2 py-0.5 rounded-full border border-purple-400/40 text-purple-300 hover:bg-purple-900/40 chip-q" data-q="Explain NEWS2 score protocol for this patient.">NEWS2 Protocol</button>
+            <button class="text-xs px-2 py-0.5 rounded-full border border-purple-400/40 text-purple-300 hover:bg-purple-900/40 chip-q" data-q="Is there any sepsis or shock warning?">Sepsis Triage</button>
+            <button class="text-xs px-2 py-0.5 rounded-full border border-purple-400/40 text-purple-300 hover:bg-purple-900/40 chip-q" data-q="Mareeza ki sthiti Hindi mein samjhao.">Hindi Triage</button>
+          </div>
+          <div class="flex gap-2">
+            <input id="chatInput" type="text" placeholder="Ask AI triage assistant about active patient..." class="flex-1 bg-black/50 border border-cyan-500/40 rounded px-3 py-1.5 text-sm text-white outline-none focus:border-cyan-300">
+            <button id="chatSendBtn" class="px-4 py-1.5 bg-cyan-500/20 hover:bg-cyan-500/40 border border-cyan-400 rounded text-cyan-300 font-bold text-xs orb">SEND</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- ========================================== -->
+<!-- 5. FOOTER -->
+<!-- ========================================== -->
+<footer class="relative z-20 px-4 py-2 bg-slate-950/95 border-t border-cyan-500/20 flex flex-wrap items-center justify-between text-xs text-cyan-400/70 mono">
+  <div class="flex items-center gap-2">
+    <span>SYSTEM: <b class="text-cyan-300">OPERATION WARD ZERO v2.0</b></span>
+    <span class="text-cyan-700">|</span>
+    <span>ENGINE: <b class="text-purple-300">10-PARAM ENSEMBLE + NHS NEWS2</b></span>
+    <span class="text-cyan-700">|</span>
+    <span>STATUS: <b class="text-emerald-400">TELEMETRY ACTIVE</b></span>
+  </div>
+  <div class="flex items-center gap-3">
+    <span>TEAM: <b class="orb text-white">TeamJarvis</b></span>
+    <span class="text-cyan-700">|</span>
+    <span class="text-amber-400">HACKATHON CLINICAL PROTOTYPE (NON-DIAGNOSTIC)</span>
+  </div>
+</footer>
+
+<!-- ========================================== -->
+<!-- 6. CLINICAL LOGIC, MQTT & CANVAS ENGINE    -->
+<!-- ========================================== -->
+<script>
+/* ============ PATIENT REGISTRY & STATE ============ */
+const PATIENTS = {
+  bed01: {
+    id: "bed01", name: "John Doe", age: 58, blood: "O+", caregiver: "Nurse Sarah",
+    diag: "Post-Op Telemetry", room: "Room 204",
+    vitals: {hr: 74, spo2: 98.2, sys: 120, dia: 78, map: 92, rr: 16, glucose: 96, temp: 36.8, shock: 0.62, hrv: 48, news2: 0, risk: 0.18},
+    syndrome: {name: "PHYSIOLOGICAL HOMEOSTASIS", severity: "NORMAL", desc: "All parameters within normal target limits.", action: "Routine vital sign observation."}
+  },
+  bed02: {
+    id: "bed02", name: "Maria Garcia", age: 64, blood: "A+", caregiver: "Nurse Michael",
+    diag: "Sepsis Telemetry / ICU", room: "Room 205",
+    vitals: {hr: 122, spo2: 92.0, sys: 88, dia: 54, map: 65.3, rr: 26, glucose: 165, temp: 39.2, shock: 1.39, hrv: 16, news2: 8, risk: 0.88},
+    syndrome: {name: "SUSPECTED SEPSIS / SIRS (qSOFA Trigger)", severity: "CRITICAL", desc: "High RR (26), Fever (39.2°C), Low MAP (65.3), Shock Index > 1.30.", action: "Initiate Sepsis 3-Hour Bundle: IV access, draw lactate, notify physician."}
+  },
+  bed03: {
+    id: "bed03", name: "Rajesh Patel", age: 72, blood: "B+", caregiver: "Nurse Priya",
+    diag: "Cardiology / Heart Failure", room: "Room 206",
+    vitals: {hr: 84, spo2: 96.0, sys: 136, dia: 84, map: 101.3, rr: 18, glucose: 112, temp: 37.1, shock: 0.62, hrv: 36, news2: 2, risk: 0.32},
+    syndrome: {name: "MILD HYPERTENSIVE OVERLOAD", severity: "WARNING", desc: "Borderline elevated systolic blood pressure. Organ perfusion maintained.", action: "Re-evaluate MAP in 30 minutes; maintain salt restriction."}
+  }
+};
+
+let activeBed = "bed01";
+let telemetryHistory = [];
+let audioMuted = true;
+let audioCtx = null;
+
+/* Audio Tone Synthesizer (ICU Beep) */
+function triggerAlarmBeep() {
+  if (audioMuted) return;
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+    osc.frequency.setValueAtTime(659, audioCtx.currentTime + 0.12);
+    gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.3);
+  } catch(e) {}
+}
+
+document.getElementById("btnAudio").onclick = () => {
+  audioMuted = !audioMuted;
+  document.getElementById("audioIcon").textContent = audioMuted ? "🔇" : "🔊";
+  document.getElementById("audioLabel").textContent = audioMuted ? "MUTE" : "ALARM ON";
+  if (!audioMuted && !audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+};
+
+/* Bed Switching */
+function setBed(bedId) {
+  if (!PATIENTS[bedId]) return;
+  activeBed = bedId;
+  document.querySelectorAll(".bed-tab").forEach(tab => {
+    tab.classList.toggle("active", tab.dataset.bed === bedId);
+  });
+  renderPatientData();
+  renderShapBars();
+}
+
+document.querySelectorAll(".bed-tab").forEach(btn => {
+  btn.onclick = () => setBed(btn.dataset.bed);
+});
+
+/* Render Patient Header & Tiles */
+function renderPatientData() {
+  const p = PATIENTS[activeBed];
+  const v = p.vitals;
+
+  document.getElementById("pName").textContent = p.name;
+  document.getElementById("pAge").textContent = p.age;
+  document.getElementById("pBlood").textContent = p.blood;
+  document.getElementById("pDiag").textContent = p.diag;
+  document.getElementById("pCare").textContent = p.caregiver;
+  document.getElementById("pRoom").textContent = p.room;
+  document.getElementById("badgeBedId").textContent = activeBed.toUpperCase();
+
+  // Vitals
+  document.getElementById("vHr").textContent = Math.round(v.hr);
+  document.getElementById("vSpo2").textContent = v.spo2.toFixed(1);
+  document.getElementById("vSys").textContent = Math.round(v.sys);
+  document.getElementById("vDia").textContent = Math.round(v.dia);
+  document.getElementById("vMap").textContent = Math.round(v.map);
+  document.getElementById("vRr").textContent = Math.round(v.rr);
+  document.getElementById("vGlu").textContent = Math.round(v.glucose);
+  document.getElementById("vTemp").textContent = v.temp.toFixed(1);
+  document.getElementById("vShock").textContent = v.shock.toFixed(2);
+  document.getElementById("vHrv").textContent = Math.round(v.hrv);
+
+  // Hologram text
+  document.getElementById("holoHrTxt").textContent = `♥ ${Math.round(v.hr)} bpm`;
+  document.getElementById("holoRrTxt").textContent = `Resp: ${Math.round(v.rr)} bpm`;
+
+  // Status Styling
+  const tileHr = document.getElementById("tileHr");
+  tileHr.className = `card-icu v-tile ${v.hr > 120 || v.hr < 45 ? 'crit' : v.hr > 100 ? 'warn' : ''}`;
+  document.getElementById("sHr").textContent = v.hr > 120 ? 'CRITICAL TACHY' : v.hr > 100 ? 'TACHYCARDIA' : 'NORMAL';
+
+  const tileSpo2 = document.getElementById("tileSpo2");
+  tileSpo2.className = `card-icu v-tile ${v.spo2 < 90 ? 'crit' : v.spo2 < 95 ? 'warn' : ''}`;
+  document.getElementById("sSpo2").textContent = v.spo2 < 90 ? 'HYPOXEMIC' : v.spo2 < 95 ? 'BORDERLINE' : 'OPTIMAL';
+
+  const tileBp = document.getElementById("tileBp");
+  tileBp.className = `card-icu v-tile ${v.sys > 180 || v.sys < 85 ? 'crit' : v.sys > 140 ? 'warn' : ''}`;
+
+  const tileRr = document.getElementById("tileRr");
+  tileRr.className = `card-icu v-tile ${v.rr >= 25 || v.rr <= 8 ? 'crit' : v.rr > 20 ? 'warn' : ''}`;
+  document.getElementById("sRr").textContent = v.rr >= 25 ? 'TACHYPNEA' : 'NORMAL';
+
+  const tileGlu = document.getElementById("tileGlu");
+  tileGlu.className = `card-icu v-tile ${v.glucose < 60 ? 'crit' : v.glucose < 70 || v.glucose > 180 ? 'warn' : ''}`;
+  document.getElementById("sGlu").textContent = v.glucose < 60 ? 'HYPOGLYCEMIC' : v.glucose > 180 ? 'HYPERGLYCEMIC' : 'EUGLYCEMIC';
+
+  const tileShock = document.getElementById("tileShock");
+  tileShock.className = `card-icu v-tile ${v.shock > 0.90 ? 'crit' : v.shock > 0.75 ? 'warn' : ''}`;
+  document.getElementById("sShock").textContent = v.shock > 0.90 ? 'SHOCK DANGER' : v.shock > 0.75 ? 'BORDERLINE' : 'SAFE';
+
+  // Syndrome Banner
+  const sc = document.getElementById("syndromeCard");
+  const syn = p.syndrome;
+  document.getElementById("synStatus").textContent = syn.name;
+  document.getElementById("synTime").textContent = syn.severity;
+  document.getElementById("synDesc").textContent = syn.desc;
+  document.getElementById("synAction").textContent = `Protocol: ${syn.action}`;
+  if (syn.severity === 'CRITICAL') {
+    sc.className = "card-icu p-3 border-l-4 border-l-red-500 bg-red-950/30";
+    triggerAlarmBeep();
+  } else if (syn.severity === 'WARNING') {
+    sc.className = "card-icu p-3 border-l-4 border-l-amber-500 bg-amber-950/25";
+  } else {
+    sc.className = "card-icu p-3 border-l-4 border-l-emerald-400 bg-emerald-950/20";
+  }
+
+  // Dual Gauges
+  document.getElementById("valAiRisk").textContent = v.risk.toFixed(2);
+  const circ = 251.2;
+  document.getElementById("gArcAi").style.strokeDashoffset = circ * (1 - v.risk);
+  const isHigh = v.risk > 0.65, isMed = v.risk > 0.35;
+  document.getElementById("gArcAi").style.stroke = isHigh ? "var(--r)" : isMed ? "var(--w)" : "var(--c)";
+  document.getElementById("badgeAiRisk").textContent = isHigh ? "CRITICAL" : isMed ? "ELEVATED" : "STABLE";
+  document.getElementById("badgeAiRisk").style.color = isHigh ? "var(--r)" : isMed ? "var(--w)" : "var(--c)";
+
+  document.getElementById("valNews2").textContent = v.news2;
+  document.getElementById("gArcNews").style.strokeDashoffset = circ * (1 - Math.min(20, v.news2) / 20);
+  const newsTier = v.news2 >= 7 ? "HIGH" : v.news2 >= 5 ? "MEDIUM" : "LOW";
+  document.getElementById("badgeNews2").textContent = newsTier;
+  const nCol = v.news2 >= 7 ? "var(--r)" : v.news2 >= 5 ? "var(--w)" : "var(--p)";
+  document.getElementById("gArcNews").style.stroke = nCol;
+  document.getElementById("badgeNews2").style.color = nCol;
+
+  // Bed Tab indicators
+  document.getElementById("ledBed01").className = PATIENTS.bed01.vitals.risk > 0.6 ? "led" : "led ok";
+  document.getElementById("ledBed02").className = PATIENTS.bed02.vitals.risk > 0.6 ? "led" : "led ok";
+  document.getElementById("ledBed03").className = PATIENTS.bed03.vitals.risk > 0.6 ? "led" : "led ok";
+
+  // Ward tab numbers
+  document.getElementById("wHr1").textContent = Math.round(PATIENTS.bed01.vitals.hr);
+  document.getElementById("wSpo1").textContent = Math.round(PATIENTS.bed01.vitals.spo2) + "%";
+  document.getElementById("wBp1").textContent = `${Math.round(PATIENTS.bed01.vitals.sys)}/${Math.round(PATIENTS.bed01.vitals.dia)}`;
+  document.getElementById("wRr1").textContent = Math.round(PATIENTS.bed01.vitals.rr);
+
+  document.getElementById("wHr2").textContent = Math.round(PATIENTS.bed02.vitals.hr);
+  document.getElementById("wSpo2").textContent = Math.round(PATIENTS.bed02.vitals.spo2) + "%";
+  document.getElementById("wBp2").textContent = `${Math.round(PATIENTS.bed02.vitals.sys)}/${Math.round(PATIENTS.bed02.vitals.dia)}`;
+  document.getElementById("wRr2").textContent = Math.round(PATIENTS.bed02.vitals.rr);
+
+  document.getElementById("wHr3").textContent = Math.round(PATIENTS.bed03.vitals.hr);
+  document.getElementById("wSpo3").textContent = Math.round(PATIENTS.bed03.vitals.spo2) + "%";
+  document.getElementById("wBp3").textContent = `${Math.round(PATIENTS.bed03.vitals.sys)}/${Math.round(PATIENTS.bed03.vitals.dia)}`;
+  document.getElementById("wRr3").textContent = Math.round(PATIENTS.bed03.vitals.rr);
+}
+
+/* SHAP Attribution Bars */
+function renderShapBars() {
+  const v = PATIENTS[activeBed].vitals;
+  const feats = [
+    {label: "Shock Index (HR/SYS)", val: v.shock.toFixed(2), shap: v.shock > 0.75 ? (v.shock - 0.7) * 0.45 : -0.15},
+    {label: "Respiratory Rate", val: Math.round(v.rr) + " bpm", shap: v.rr > 20 ? (v.rr - 20) * 0.025 : -0.06},
+    {label: "Blood Glucose", val: Math.round(v.glucose) + " mg/dL", shap: v.glucose < 65 ? 0.32 : v.glucose > 160 ? 0.14 : -0.09},
+    {label: "Blood Oxygen (SpO₂)", val: v.spo2.toFixed(1) + "%", shap: v.spo2 < 93 ? (95 - v.spo2) * 0.04 : -0.05},
+    {label: "Mean Arterial Pressure", val: Math.round(v.map) + " mmHg", shap: v.map < 65 ? (65 - v.map) * 0.03 : -0.02},
+    {label: "Heart Rate", val: Math.round(v.hr) + " bpm", shap: v.hr > 110 ? (v.hr - 100) * 0.003 : -0.03},
+    {label: "HR Variability (HRV)", val: Math.round(v.hrv) + " ms", shap: v.hrv < 20 ? 0.08 : -0.03},
+    {label: "Core Temperature", val: v.temp.toFixed(1) + "°C", shap: v.temp > 38.2 ? (v.temp - 37.5) * 0.05 : -0.01}
+  ];
+
+  feats.sort((a,b) => Math.abs(b.shap) - Math.abs(a.shap));
+
+  const list = document.getElementById("shapList");
+  list.innerHTML = feats.map(f => {
+    const isPos = f.shap > 0;
+    const widthPct = Math.min(100, Math.abs(f.shap) * 260);
+    return `
+      <div class="flex items-center text-[11px] mono">
+        <div class="w-36 text-cyan-200/90 truncate">${f.label}</div>
+        <div class="w-16 text-right text-cyan-300 mr-2">${f.val}</div>
+        <div class="flex-1 bg-black/50 h-2 rounded overflow-hidden flex items-center">
+          <div class="h-full rounded ${isPos ? 'bg-gradient-to-r from-orange-400 to-red-500' : 'bg-gradient-to-r from-cyan-400 to-emerald-400'}" style="width:${widthPct}%"></div>
+        </div>
+        <div class="w-12 text-right ${isPos ? 'text-orange-400 font-bold' : 'text-emerald-400'} ml-1.5">${isPos ? '+' : ''}${f.shap.toFixed(2)}</div>
+      </div>
+    `;
+  }).join("");
+
+  // Rule console
+  const rc = document.getElementById("ruleConsole");
+  const flags = feats.filter(f => f.shap > 0.05);
+  if (!flags.length) {
+    rc.innerHTML = `<div class="text-emerald-400/90 font-mono">[NORMAL] All 10 monitored parameters within clinical homeostasis.</div>`;
+  } else {
+    rc.innerHTML = flags.map(fl => `
+      <div class="text-red-400 py-0.5 font-mono flex items-center gap-1.5">
+        <span class="text-red-500 font-bold">▶ [ALERT]</span>
+        <span>${fl.label}: <b>${fl.val}</b> (Risk Impact +${fl.shap.toFixed(2)})</span>
+      </div>
+    `).join("");
+  }
+}
+
+/* ========================================== */
+/* CLINICAL SCENARIO BUTTONS                  */
+/* ========================================== */
+function applyScenario(scenName) {
+  document.querySelectorAll(".btn-scen").forEach(b => b.classList.remove("active"));
+  const btn = document.getElementById("scen" + scenName);
+  if (btn) btn.classList.add("active");
+
+  const p = PATIENTS[activeBed];
+  if (scenName === "Norm") {
+    p.vitals = {hr: 74, spo2: 98.2, sys: 120, dia: 78, map: 92, rr: 16, glucose: 96, temp: 36.8, shock: 0.62, hrv: 48, news2: 0, risk: 0.18};
+    p.syndrome = {name: "PHYSIOLOGICAL HOMEOSTASIS", severity: "NORMAL", desc: "All parameters within normal target limits.", action: "Routine vital sign observation."};
+  } else if (scenName === "Sepsis") {
+    p.vitals = {hr: 124, spo2: 91.5, sys: 88, dia: 52, map: 64.0, rr: 27, glucose: 172, temp: 39.3, shock: 1.41, hrv: 14, news2: 9, risk: 0.92};
+    p.syndrome = {name: "SUSPECTED SEPSIS / SIRS (qSOFA Trigger)", severity: "CRITICAL", desc: "Tachypnea (27 bpm), High Fever (39.3°C), MAP < 65 mmHg, High Shock Index.", action: "Initiate Sepsis 3-Hour Bundle: Check lactate, blood cultures, start IV fluid resuscitation."};
+  } else if (scenName === "Hypo") {
+    p.vitals = {hr: 112, spo2: 97.4, sys: 104, dia: 66, map: 78.7, rr: 19, glucose: 46, temp: 36.1, shock: 1.08, hrv: 18, news2: 4, risk: 0.74};
+    p.syndrome = {name: "ACUTE HYPOGLYCEMIC CRISIS (<60 mg/dL)", severity: "CRITICAL", desc: "Severe hypoglycemia (46 mg/dL) with sympathetic tachycardia & diaphoresis.", action: "Administer 15-20g fast-acting oral glucose or IV 50% Dextrose. Re-check in 15 mins."};
+  } else if (scenName === "Resp") {
+    p.vitals = {hr: 128, spo2: 85.0, sys: 146, dia: 92, map: 110.0, rr: 32, glucose: 108, temp: 37.2, shock: 0.88, hrv: 21, news2: 8, risk: 0.86};
+    p.syndrome = {name: "ACUTE RESPIRATORY COMPROMISE", severity: "CRITICAL", desc: "Severe arterial hypoxemia (SpO2 85%) and tachypnea (32 bpm).", action: "Elevate bed 45°, apply high-flow non-rebreather oxygen, call respiratory therapist."};
+  } else if (scenName === "Hyper") {
+    p.vitals = {hr: 95, spo2: 97.5, sys: 196, dia: 116, map: 142.7, rr: 21, glucose: 135, temp: 37.0, shock: 0.48, hrv: 15, news2: 3, risk: 0.68};
+    p.syndrome = {name: "HYPERTENSIVE CRISIS / URGENCY", severity: "WARNING", desc: "Malignant systolic BP (196 mmHg). Autonomic reserve suppressed.", action: "Manual BP verification, evaluate for end-organ damage (headache/chest pain)."};
+  } else if (scenName === "Decline") {
+    p.vitals = {hr: 132, spo2: 88.0, sys: 82, dia: 48, map: 59.3, rr: 29, glucose: 210, temp: 39.5, shock: 1.61, hrv: 10, news2: 12, risk: 0.98};
+    p.syndrome = {name: "FULL MULTI-ORGAN SYSTEMIC DECOMPENSATION", severity: "CRITICAL", desc: "Extreme shock index, profound hypoxemia, cardiovascular collapse.", action: "IMMEDIATE ICU RAPID RESPONSE TEAM ACTIVATION."};
+  }
+
+  // Push to history
+  recordTelemetry(p.vitals);
+  renderPatientData();
+  renderShapBars();
+}
+
+document.getElementById("scenNorm").onclick = () => applyScenario("Norm");
+document.getElementById("scenSepsis").onclick = () => applyScenario("Sepsis");
+document.getElementById("scenHypo").onclick = () => applyScenario("Hypo");
+document.getElementById("scenResp").onclick = () => applyScenario("Resp");
+document.getElementById("scenHyper").onclick = () => applyScenario("Hyper");
+document.getElementById("scenDecline").onclick = () => applyScenario("Decline");
+
+/* ========================================== */
+/* REAL-TIME CANVAS WAVEFORMS (ECG & CAPNO)   */
+/* ========================================== */
+const ecgC = document.getElementById("ecgCanvas"), ex = ecgC.getContext("2d");
+const capC = document.getElementById("capnoCanvas"), cx = capC.getContext("2d");
+let ecgW = 0, ecgH = 0, capW = 0, capH = 0;
+let ecgTrace = [], capTrace = [], ePhase = 0, cPhase = 0;
+
+function resizeWaveforms() {
+  const d = Math.min(window.devicePixelRatio || 1, 2);
+  ecgW = ecgC.parentElement.clientWidth; ecgH = ecgC.parentElement.clientHeight;
+  capW = capC.parentElement.clientWidth; capH = capC.parentElement.clientHeight;
+  if (!ecgW || !ecgH) return;
+
+  ecgC.width = ecgW * d; ecgC.height = ecgH * d;
+  ex.setTransform(d, 0, 0, d, 0, 0);
+
+  capC.width = capW * d; capC.height = capH * d;
+  cx.setTransform(d, 0, 0, d, 0, 0);
+
+  while (ecgTrace.length < ecgW) ecgTrace.unshift(0);
+  while (capTrace.length < capW) capTrace.unshift(0);
+}
+window.addEventListener("resize", resizeWaveforms);
+setTimeout(resizeWaveforms, 200);
+
+const G_wave = (p, c, w, a) => a * Math.exp(-0.5 * ((p - c) / w) ** 2);
+const ecg_synth = p => G_wave(p, .12, .03, .12) + G_wave(p, .21, .008, -.14) + G_wave(p, .23, .011, 1.0) + G_wave(p, .255, .011, -.26) + G_wave(p, .44, .05, .32);
+const capno_synth = p => p < 0.2 ? 0 : p < 0.7 ? 1.0 : (1.0 - (p - 0.7) / 0.3);
+
+let lastTime = 0;
+function animateWaves(time) {
+  requestAnimationFrame(animateWaves);
+  const dt = lastTime ? Math.min(0.05, (time - lastTime) / 1000) : 0;
+  lastTime = time;
+  if (!ecgW || !ecgH) return;
+
+  const v = PATIENTS[activeBed].vitals;
+  const hrSpeed = Math.max(30, v.hr);
+  const rrSpeed = Math.max(8, v.rr);
+
+  // Advance ECG
+  ePhase += (dt * hrSpeed) / 60;
+  if (ePhase >= 1) ePhase -= 1;
+  ecgTrace.push(ecg_synth(ePhase) + (Math.random() - 0.5) * 0.02);
+  ecgTrace.shift();
+
+  // Advance Capnography
+  cPhase += (dt * rrSpeed) / 60;
+  if (cPhase >= 1) cPhase -= 1;
+  capTrace.push(capno_synth(cPhase) + (Math.random() - 0.5) * 0.015);
+  capTrace.shift();
+
+  // Draw ECG
+  ex.clearRect(0, 0, ecgW, ecgH);
+  ex.lineWidth = 2.2;
+  ex.strokeStyle = v.hr > 120 ? "#ff004c" : "#00f3ff";
+  ex.shadowColor = ex.strokeStyle;
+  ex.shadowBlur = 10;
+  ex.beginPath();
+  const eMid = ecgH * 0.65;
+  for (let x = 0; x < ecgW; x++) {
+    const y = eMid - ecgTrace[x] * (ecgH * 0.45);
+    x === 0 ? ex.moveTo(x, y) : ex.lineTo(x, y);
+  }
+  ex.stroke();
+
+  // Draw Capnography
+  cx.clearRect(0, 0, capW, capH);
+  cx.lineWidth = 2.0;
+  cx.strokeStyle = "#10b981";
+  cx.shadowColor = "#10b981";
+  cx.shadowBlur = 8;
+  cx.beginPath();
+  const cMid = capH * 0.82;
+  for (let x = 0; x < capW; x++) {
+    const y = cMid - capTrace[x] * (capH * 0.65);
+    x === 0 ? cx.moveTo(x, y) : cx.lineTo(x, y);
+  }
+  cx.stroke();
+}
+requestAnimationFrame(animateWaves);
+
+/* ========================================== */
+/* REAL-TIME 60-SEC MULTI-TRACE TREND CHART   */
+/* ========================================== */
+const tc = document.getElementById("trendChartCanvas"), tx = tc.getContext("2d");
+let tW = 0, tH = 0;
+function resizeTrend() {
+  const d = Math.min(window.devicePixelRatio || 1, 2);
+  tW = tc.parentElement.clientWidth; tH = tc.parentElement.clientHeight;
+  if (!tW || !tH) return;
+  tc.width = tW * d; tc.height = tH * d;
+  tx.setTransform(d, 0, 0, d, 0, 0);
+  renderTrend();
+}
+window.addEventListener("resize", resizeTrend);
+setTimeout(resizeTrend, 300);
+
+function recordTelemetry(v) {
+  const rec = {
+    ts: new Date().toISOString(),
+    bed: activeBed,
+    hr: v.hr, spo2: v.spo2, sys: v.sys, dia: v.dia, map: v.map,
+    rr: v.rr, glucose: v.glucose, shock: v.shock, news2: v.news2, risk: v.risk
+  };
+  telemetryHistory.push(rec);
+  if (telemetryHistory.length > 50) telemetryHistory.shift();
+
+  // Populate Table
+  const tbody = document.getElementById("historyTbody");
+  const rows = telemetryHistory.slice(-12).reverse();
+  tbody.innerHTML = rows.map(r => `
+    <tr>
+      <td class="p-1.5 text-cyan-400/70">${new Date(r.ts).toLocaleTimeString()}</td>
+      <td class="p-1.5 font-bold orb">${r.bed.toUpperCase()}</td>
+      <td class="p-1.5">${Math.round(r.hr)}</td>
+      <td class="p-1.5">${r.spo2.toFixed(1)}%</td>
+      <td class="p-1.5">${Math.round(r.sys)}/${Math.round(r.dia)}</td>
+      <td class="p-1.5">${Math.round(r.map)}</td>
+      <td class="p-1.5">${Math.round(r.rr)}</td>
+      <td class="p-1.5">${Math.round(r.glucose)}</td>
+      <td class="p-1.5">${r.shock.toFixed(2)}</td>
+      <td class="p-1.5 font-bold ${r.news2 >= 7 ? 'text-red-400' : 'text-purple-300'}">${r.news2}</td>
+      <td class="p-1.5 font-bold ${r.risk > 0.6 ? 'text-red-400' : 'text-cyan-300'}">${r.risk.toFixed(2)}</td>
+    </tr>
+  `).join("");
+
+  renderTrend();
+}
+
+function renderTrend() {
+  if (!tW || !tH) return;
+  tx.clearRect(0, 0, tW, tH);
+  // Grid lines
+  tx.strokeStyle = "rgba(0,243,255,0.06)";
+  tx.lineWidth = 1;
+  for (let y = 20; y < tH; y += 35) {
+    tx.beginPath(); tx.moveTo(0, y); tx.lineTo(tW, y); tx.stroke();
+  }
+
+  const pts = telemetryHistory.slice(-35);
+  if (pts.length < 2) return;
+  const dx = tW / Math.max(pts.length - 1, 1);
+
+  function drawLine(getter, color, minV, maxV) {
+    tx.strokeStyle = color;
+    tx.lineWidth = 2;
+    tx.beginPath();
+    pts.forEach((p, i) => {
+      const val = getter(p);
+      const norm = (val - minV) / (maxV - minV || 1);
+      const y = tH - Math.max(6, Math.min(tH - 6, norm * (tH - 12)));
+      i === 0 ? tx.moveTo(i * dx, y) : tx.lineTo(i * dx, y);
+    });
+    tx.stroke();
+  }
+
+  drawLine(p => p.hr, "#00f3ff", 40, 160);
+  drawLine(p => p.spo2, "#10b981", 75, 100);
+  drawLine(p => p.map, "#f59e0b", 50, 150);
+  drawLine(p => p.risk * 100, "#ff004c", 0, 100);
+}
+
+/* ========================================== */
+/* WORKSPACE TABS                             */
+/* ========================================== */
+document.querySelectorAll(".tab-link").forEach(tab => {
+  tab.onclick = () => {
+    document.querySelectorAll(".tab-link").forEach(t => t.classList.remove("active"));
+    tab.classList.add("active");
+    const target = tab.dataset.tab;
+    document.getElementById("panelTrend").classList.toggle("hidden", target !== "tabTrend");
+    document.getElementById("panelWard").classList.toggle("hidden", target !== "tabWard");
+    document.getElementById("panelHistory").classList.toggle("hidden", target !== "tabHistory");
+    document.getElementById("panelAiChat").classList.toggle("hidden", target !== "tabAiChat");
+    if (target === "tabTrend") setTimeout(resizeTrend, 100);
+  };
+});
+
+/* ========================================== */
+/* AI CAREGIVER CHAT (GROQ BACKEND)           */
+/* ========================================== */
+const chatBox = document.getElementById("chatMessages");
+function appendMsg(sender, text) {
+  const div = document.createElement("div");
+  div.className = `msg ${sender}`;
+  div.textContent = text;
+  chatBox.appendChild(div);
+  chatBox.scrollTop = chatBox.scrollHeight;
+}
+appendMsg("ai", "Ward Zero Clinical Triage Online. How can I assist you with Bed 01's telemetry or NEWS2 early warning protocol?");
+
+async function sendAiChat(query) {
+  if (!query) return;
+  appendMsg("me", query);
+  const v = PATIENTS[activeBed].vitals;
+  try {
+    const res = await fetch("/api/chat", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({text: query, lang: document.getElementById("langSelect").value, patient_id: activeBed})
+    });
+    if (res.ok) {
+      const data = await res.json();
+      appendMsg("ai", data.text);
+    } else {
+      appendMsg("ai", `Patient Telemetry: HR ${Math.round(v.hr)} bpm, SpO2 ${v.spo2.toFixed(1)}%, MAP ${Math.round(v.map)} mmHg, NEWS2: ${v.news2}. Keep patient calm and resting.`);
+    }
+  } catch(e) {
+    appendMsg("ai", `Clinical Fallback: Vitals are HR ${Math.round(v.hr)} bpm, SpO2 ${v.spo2.toFixed(1)}%, RR ${Math.round(v.rr)}. Ensure patient is seated upright at 45° elevation.`);
+  }
+}
+
+document.getElementById("chatSendBtn").onclick = () => {
+  const input = document.getElementById("chatInput");
+  const val = input.value.trim();
+  if (val) { sendAiChat(val); input.value = ""; }
+};
+document.getElementById("chatInput").onkeydown = e => {
+  if (e.key === "Enter") {
+    const input = document.getElementById("chatInput");
+    const val = input.value.trim();
+    if (val) { sendAiChat(val); input.value = ""; }
+  }
+};
+document.querySelectorAll(".chip-q").forEach(chip => {
+  chip.onclick = () => sendAiChat(chip.dataset.q);
+});
+
+/* ========================================== */
+/* EXPORT CSV                                 */
+/* ========================================== */
+document.getElementById("btnExportCsv").onclick = () => {
+  if (!telemetryHistory.length) return alert("No telemetry observations logged yet.");
+  const headers = ["timestamp", "bed", "hr", "spo2", "sys", "dia", "map", "rr", "glucose", "shock_index", "news2", "ai_risk"];
+  const rows = telemetryHistory.map(r => [
+    r.ts, r.bed, r.hr, r.spo2, r.sys, r.dia, r.map, r.rr, r.glucose, r.shock, r.news2, r.risk
+  ]);
+  const csv = [headers.join(",")].concat(rows.map(r => r.join(","))).join("\n");
+  const blob = new Blob([csv], {type: "text/csv"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `wardzero-icu-telemetry-${activeBed}.csv`;
+  a.click();
+};
+
+/* ========================================== */
+/* LIVE WEBSOCKET TELEMETRY HOOK              */
+/* ========================================== */
+let ws = null;
+function initWebSocket() {
+  const proto = location.protocol === "https:" ? "wss:" : "ws:";
+  ws = new WebSocket(`${proto}//${location.host}/ws`);
+
+  ws.onopen = () => {
+    document.getElementById("ledWs").className = "led ok";
+  };
+  ws.onclose = () => {
+    document.getElementById("ledWs").className = "led";
+    setTimeout(initWebSocket, 3000);
+  };
+  ws.onmessage = ev => {
+    try {
+      const msg = JSON.parse(ev.data);
+      if (msg.type === "vitals" && msg.data) {
+        const d = msg.data;
+        const targetPid = d.patient_id || "bed01";
+        if (PATIENTS[targetPid]) {
+          PATIENTS[targetPid].vitals = {
+            hr: d.hr, spo2: d.spo2, sys: d.sys, dia: d.dia,
+            map: d.map || ((2 * d.dia + d.sys) / 3),
+            rr: d.rr || 16, glucose: d.glucose || 96, temp: d.temp || 36.8,
+            shock: d.shock_index || (d.hr / d.sys),
+            hrv: d.hrv || 45, news2: d.news2_score || 0, risk: d.risk || 0.2
+          };
+          if (d.syndrome) PATIENTS[targetPid].syndrome = d.syndrome;
+        }
+        recordTelemetry(PATIENTS[activeBed].vitals);
+        renderPatientData();
+        renderShapBars();
+      }
+    } catch(e) {}
+  };
+}
+initWebSocket();
+
+/* ========================================== */
+/* THREE.JS BACKGROUND SIMULATION             */
+/* ========================================== */
+(function() {
+  if (!window.THREE) return;
+  const canvas = document.getElementById("bg");
+  let renderer;
+  try { renderer = new THREE.WebGLRenderer({canvas, alpha: true, antialias: false}); } catch(e) { return; }
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(55, 1, .1, 200);
+  camera.position.z = 45;
+
+  const pts = [];
+  for (let i = 0; i < 500; i++) {
+    const y = 1 - 2 * (i + .5) / 500, r = Math.sqrt(1 - y * y), a = i * 2.4;
+    pts.push(Math.cos(a) * r * 14, y * 14, Math.sin(a) * r * 14);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(pts, 3));
+  const mat = new THREE.PointsMaterial({color: 0x00f3ff, size: 0.35, transparent: true, opacity: 0.65, blending: THREE.AdditiveBlending});
+  const globe = new THREE.Points(geo, mat);
+  scene.add(globe);
+
+  function resize() {
+    renderer.setSize(window.innerWidth, window.innerHeight, false);
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+  }
+  resize(); window.addEventListener("resize", resize);
+
+  function loop() {
+    requestAnimationFrame(loop);
+    globe.rotation.y += 0.0025;
+    renderer.render(scene, camera);
+  }
+  loop();
+})();
+
+// Initial Setup
+for (let i = 0; i < 20; i++) {
+  recordTelemetry(PATIENTS.bed01.vitals);
+}
+renderPatientData();
+renderShapBars();
+</script>
+</body>
+</html>

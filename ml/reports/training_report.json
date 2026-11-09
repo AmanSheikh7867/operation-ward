@@ -1,0 +1,39 @@
+{
+  "model_type": "RandomForestRegressor",
+  "n_estimators": 100,
+  "max_depth": 14,
+  "n_features": 10,
+  "feature_names": [
+    "hr",
+    "spo2",
+    "sys",
+    "dia",
+    "temp",
+    "rr",
+    "glucose",
+    "map",
+    "shock_index",
+    "hrv"
+  ],
+  "feature_importances": {
+    "hr": 0.023,
+    "spo2": 0.0644,
+    "sys": 0.0557,
+    "dia": 0.0023,
+    "temp": 0.0163,
+    "rr": 0.1252,
+    "glucose": 0.2368,
+    "map": 0.0057,
+    "shock_index": 0.4195,
+    "hrv": 0.051
+  },
+  "n_train_samples": 6400,
+  "n_test_samples": 1600,
+  "training_time_s": 2.64,
+  "data_seed": 42,
+  "model_seed": 42,
+  "artifacts": {
+    "model": "C:\\Users\\ASUS\\Downloads\\operation-ward\\ml\\artifacts\\risk_model.joblib",
+    "stats": "C:\\Users\\ASUS\\Downloads\\operation-ward\\ml\\artifacts\\feature_stats.joblib"
+  }
+}
